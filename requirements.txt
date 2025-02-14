@@ -1,0 +1,7 @@
+# core dependencies
+torch
+torchvision
+
+# code formatting
+black
+isort
