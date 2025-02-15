@@ -5,3 +5,7 @@ torchvision
 # code formatting
 black
 isort
+
+# experiment tracking and pipeline versioning
+wandb
+dvc
