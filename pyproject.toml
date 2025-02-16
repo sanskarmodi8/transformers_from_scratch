@@ -1,0 +1,20 @@
+[build-system]
+# Minimum requirements and backend for building the package
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Project metadata
+name = "transformers_from_scratch"  # Package name
+version = "0.0.0"  # Initial version
+description = "Transformers built from scratch using PyTorch."
+authors = [{ name = "Sanskar Modi", email = "sansyprog8@gmail.com" }]
+readme = "README.md"  # Path to the README file
+
+[project.urls]
+# Additional project URLs
+"Bug Tracker" = "https://github.com/sanskarmodi8/transformers_from_scratch/issues"
+
+[tool.isort]
+# Configure isort to use Black's style
+profile = "black"

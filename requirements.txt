@@ -8,4 +8,17 @@ isort
 
 # experiment tracking and pipeline versioning
 wandb
+mlflow
 dvc
+
+# user interface
+streamlit
+
+# utilities
+python-box
+pyYAML
+ensure
+joblib
+python-dotenv
+
+-e .
