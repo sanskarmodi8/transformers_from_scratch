@@ -4,10 +4,11 @@ from pathlib import Path
 
 import joblib
 import yaml
-from AUTOFORECAST import logger
 from box import ConfigBox
 from box.exceptions import BoxValueError
 from ensure import ensure_annotations
+
+from Transformer import logger
 
 
 @ensure_annotations

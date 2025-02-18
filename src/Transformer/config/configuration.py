@@ -14,8 +14,6 @@ class ConfigurationManager:
 
         :return: None
         """
-        self._download_dataset()
-        self._preprocess_dataset()
         self.config = read_yaml(CONFIG_FILE_PATH)
         self.params = read_yaml(PARAMS_FILE_PATH)
         create_directories([self.config.artifacts_root])
