@@ -1,6 +1,10 @@
 # core dependencies
 torch
-torchvision
+pandas
+datasets
+
+# progress bars
+tqdm
 
 # code formatting
 black

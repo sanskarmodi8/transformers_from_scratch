@@ -1,0 +1,9 @@
+# base configuration file
+
+artifacts_root: artifacts
+
+data_ingestion:
+  root_dir: artifacts/data_ingestion
+  dataset_name: "wmt14"
+  lang_pair: "de-en"
+  data_path: artifacts/data_ingestion/data
