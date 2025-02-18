@@ -2,6 +2,7 @@
 torch
 pandas
 datasets
+transformers
 
 # progress bars
 tqdm

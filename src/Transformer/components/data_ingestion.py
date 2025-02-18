@@ -27,7 +27,7 @@ class DataIngestion:
 
         # Handle dataset download errors
         try:
-            dataset = load_dataset(self.config.dataset_name, self.config.lang_pair)
+            dataset = load_dataset("wmt14", "de-en")
             logger.info("Dataset successfully loaded.")
         except Exception as e:
             logger.error(f"Failed to download dataset: {e}")
