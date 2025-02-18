@@ -3,6 +3,8 @@ torch
 pandas
 datasets
 transformers
+sentencepiece
+sacremoses
 
 # progress bars
 tqdm
