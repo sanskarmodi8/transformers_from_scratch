@@ -3,8 +3,8 @@ import os
 
 import pandas as pd
 from tokenizers import ByteLevelBPETokenizer
-from tqdm import tqdm
 from transformers import PreTrainedTokenizerFast
+from tqdm import tqdm
 
 from Transformer import logger
 from Transformer.entity.config_entity import DataPreprocessingConfig
@@ -35,9 +35,7 @@ class Preprocessing:
             all_text.extend(df["translation"].apply(lambda x: x["en"]).tolist())
 
         # Save text to a temporary file for training
-        temp_text_file = os.path.join(
-            self.config.root_dir, "tokenizer_training_text.txt"
-        )
+        temp_text_file = os.path.join(self.config.root_dir, "tokenizer_training_text.txt")
         with open(temp_text_file, "w", encoding="utf-8") as f:
             f.write("\n".join(all_text))
 
@@ -50,8 +48,8 @@ class Preprocessing:
         )
 
         # Save tokenizer
-        tokenizer.save_model(self.tokenizer_path)
-        logger.info(f"BPE tokenizer trained and saved at {self.tokenizer_path}")
+        tokenizer.save_model(self.config.tokenizer_path)
+        logger.info(f"BPE tokenizer trained and saved at {self.config.tokenizer_path}")
 
     def preprocess_data(self):
         """
@@ -62,6 +60,16 @@ class Preprocessing:
 
         :return: None
         """
+        # Load trained tokenizer
+        tokenizer = PreTrainedTokenizerFast(
+            tokenizer_file=os.path.join(self.config.tokenizer_path, "vocab.json"),
+            unk_token="<unk>",
+            pad_token="<pad>",
+            cls_token="<s>",
+            sep_token="</s>",
+            mask_token="<mask>",
+        )
+
         for split in tqdm(os.listdir(self.config.data_path), desc="Preprocessing"):
             split_path = os.path.join(self.config.data_path, split)
             df = pd.read_csv(split_path)
@@ -72,24 +80,24 @@ class Preprocessing:
             # Extract German and English text
             df["de"] = df["translation"].apply(lambda x: x["de"])
             df["en"] = df["translation"].apply(lambda x: x["en"])
-            df = df.drop(columns=["translation"])
+            df.drop(columns=["translation"], inplace=True)
 
-            # Apply BPE tokenization
+            # Apply BPE tokenization and get token IDs
             df["de"] = df["de"].apply(
-                lambda x: self.tokenizer.encode(
+                lambda x: tokenizer.encode(
                     x,
                     truncation=True,
                     padding="max_length",
                     max_length=self.config.max_length,
-                )
+                ).ids
             )
             df["en"] = df["en"].apply(
-                lambda x: self.tokenizer.encode(
+                lambda x: tokenizer.encode(
                     x,
                     truncation=True,
                     padding="max_length",
                     max_length=self.config.max_length,
-                )
+                ).ids
             )
 
             # Save preprocessed data
