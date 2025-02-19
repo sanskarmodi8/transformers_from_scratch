@@ -28,6 +28,7 @@ class DataPreprocessingPipeline:
 
         :return: None
         """
+        self.data_preprocessing.train_tokenizer()
         self.data_preprocessing.preprocess_data()
 
 

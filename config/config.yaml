@@ -10,3 +10,8 @@ data_preprocessing:
   root_dir: artifacts/data_preprocessing
   data_path: artifacts/data_ingestion/data
   preprocessed_data_path: artifacts/data_preprocessing/preprocessed_data
+  tokenizer_path: artifacts/data_preprocessing/bpe_tokenizer
+
+build_model:
+  root_dir: artifacts/build_model
+  model_path: artifacts/build_model/transformer.pth

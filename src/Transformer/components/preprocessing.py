@@ -2,8 +2,9 @@ import ast
 import os
 
 import pandas as pd
+from tokenizers import ByteLevelBPETokenizer
 from tqdm import tqdm
-from transformers import AutoTokenizer
+from transformers import PreTrainedTokenizerFast
 
 from Transformer import logger
 from Transformer.entity.config_entity import DataPreprocessingConfig
@@ -19,43 +20,82 @@ class Preprocessing:
         """
         self.config = config
 
+    def train_tokenizer(self):
+        """
+        Trains a new Byte Pair Encoding (BPE) tokenizer with a shared vocabulary of 37,000 tokens.
+        """
+        tokenizer = ByteLevelBPETokenizer()
+
+        all_text = []
+        for split in os.listdir(self.config.data_path):
+            split_path = os.path.join(self.config.data_path, split)
+            df = pd.read_csv(split_path)
+            df["translation"] = df["translation"].apply(lambda x: ast.literal_eval(x))
+            all_text.extend(df["translation"].apply(lambda x: x["de"]).tolist())
+            all_text.extend(df["translation"].apply(lambda x: x["en"]).tolist())
+
+        # Save text to a temporary file for training
+        temp_text_file = os.path.join(
+            self.config.root_dir, "tokenizer_training_text.txt"
+        )
+        with open(temp_text_file, "w", encoding="utf-8") as f:
+            f.write("\n".join(all_text))
+
+        # Train BPE tokenizer
+        tokenizer.train(
+            files=[temp_text_file],
+            vocab_size=37000,
+            min_frequency=2,
+            special_tokens=["<s>", "</s>", "<pad>", "<unk>", "<mask>"],
+        )
+
+        # Save tokenizer
+        tokenizer.save_model(self.tokenizer_path)
+        logger.info(f"BPE tokenizer trained and saved at {self.tokenizer_path}")
+
     def preprocess_data(self):
         """
         This method preprocesses the data by performing the following operations:
         1. Extracts German and English text from the translation column.
-        2. Tokenizes the text using the Helsinki-NLP/opus-mt-de-en tokenizer.
+        2. Tokenizes the text using the trained BPE tokenizer.
         3. Saves the preprocessed data as a CSV file in the preprocessed_data_path.
 
         :return: None
         """
-        tokenizer = AutoTokenizer.from_pretrained("Helsinki-NLP/opus-mt-de-en")
-
         for split in tqdm(os.listdir(self.config.data_path), desc="Preprocessing"):
             split_path = os.path.join(self.config.data_path, split)
             df = pd.read_csv(split_path)
-            # convert string dict to actual dict
+
+            # Convert string dictionary to actual dictionary
             df["translation"] = df["translation"].apply(lambda x: ast.literal_eval(x))
-            # extract eng and german text into diff columns
+
+            # Extract German and English text
             df["de"] = df["translation"].apply(lambda x: x["de"])
             df["en"] = df["translation"].apply(lambda x: x["en"])
+            df = df.drop(columns=["translation"])
 
-            df.drop(columns=["translation"], inplace=True)
-
-            # tokenize using bpe tokenizer
+            # Apply BPE tokenization
             df["de"] = df["de"].apply(
-                lambda x: tokenizer.encode(
-                    x, truncation=True, padding="max_length", max_length=512
+                lambda x: self.tokenizer.encode(
+                    x,
+                    truncation=True,
+                    padding="max_length",
+                    max_length=self.config.max_length,
                 )
             )
             df["en"] = df["en"].apply(
-                lambda x: tokenizer.encode(
-                    x, truncation=True, padding="max_length", max_length=512
+                lambda x: self.tokenizer.encode(
+                    x,
+                    truncation=True,
+                    padding="max_length",
+                    max_length=self.config.max_length,
                 )
             )
 
+            # Save preprocessed data
             df.to_csv(
                 os.path.join(self.config.preprocessed_data_path, split), index=False
             )
             logger.info(
-                f"Preprocessed {split} data saved at {self.config.preprocessed_data_path / split}.csv"
+                f"Preprocessed {split} data saved at {self.config.preprocessed_data_path}/{split}.csv"
             )
