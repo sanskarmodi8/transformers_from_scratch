@@ -1,5 +1,8 @@
 import math
 
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -90,8 +93,9 @@ class MultiHeadAttention(nn.Module):
         self.num_heads = num_heads
         self.d_k = d_model // num_heads
 
-        # Linear projections for Q, K, V at once
+        # Linear projections for Q, K, V, and output
         self.w_qkv = nn.Linear(d_model, d_model * 3)
+        self.w_o = nn.Linear(d_model, d_model)  # Added missing output projection
 
         self.dropout = nn.Dropout(dropout)
 
@@ -100,13 +104,11 @@ class MultiHeadAttention(nn.Module):
         Forward pass of the Multi-Head Attention module.
 
         Args:
-            q (torch.Tensor): query tensor (batch_size, seq_len_q, d_model)
-            k (torch.Tensor): key tensor (batch_size, seq_len_k, d_model)
-            v (torch.Tensor): value tensor (batch_size, seq_len_v, d_model)
-            mask (torch.Tensor, optional): attention mask tensor (batch_size, 1, seq_len_q, seq_len_k). Defaults to None.
+            x (torch.Tensor): input tensor (batch_size, seq_len, d_model)
+            mask (torch.Tensor, optional): attention mask tensor. Defaults to None.
 
         Returns:
-            tuple: output tensor with attention applied (batch_size, seq_len_q, d_model), attention weights
+            tuple: output tensor with attention applied (batch_size, seq_len, d_model), attention weights
         """
         batch_size = x.size(0)
 
@@ -132,9 +134,9 @@ class MultiHeadAttention(nn.Module):
             scores = scores.masked_fill(mask == 0, -1e9)
 
         attn_weights = F.softmax(scores, dim=-1)
-        attn_weights = self.dropout(attn_weights)
+        attn_weights_dropout = self.dropout(attn_weights)
 
-        output = torch.matmul(attn_weights, v)  # (B, H, Sq, d_k)
+        output = torch.matmul(attn_weights_dropout, v)  # (B, H, Sq, d_k)
         output = (
             output.transpose(1, 2).contiguous().view(batch_size, -1, self.d_model)
         )  # (B, Sq, d_model)
@@ -198,17 +200,17 @@ class EncoderLayer(nn.Module):
             mask (torch.Tensor, optional): attention mask. Defaults to None.
 
         Returns:
-            torch.Tensor: output tensor (batch_size, seq_len, d_model)
+            tuple: output tensor (batch_size, seq_len, d_model), attention weights
         """
         # Self-Attention with residual connection and layer normalization
-        attn_output, _ = self.self_attn(x, x, x, mask)
+        attn_output, attn_weights = self.self_attn(x, mask)
         x = self.norm1(x + self.dropout1(attn_output))
 
         # Position-wise Feed-Forward with residual connection and layer normalization
         ff_output = self.feed_forward(x)
         x = self.norm2(x + self.dropout2(ff_output))
 
-        return x
+        return x, attn_weights
 
 
 class DecoderLayer(nn.Module):
@@ -246,21 +248,21 @@ class DecoderLayer(nn.Module):
             tgt_mask (torch.Tensor, optional): target mask for self attention. Defaults to None.
 
         Returns:
-            torch.Tensor: output tensor (batch_size, seq_len, d_model)
+            tuple: output tensor (batch_size, seq_len, d_model), self attention weights, cross attention weights
         """
         # Masked Self-Attention with residual connection and layer normalization
-        attn_output, _ = self.self_attn(x, x, x, tgt_mask)
+        attn_output, self_attn_weights = self.self_attn(x, tgt_mask)
         x = self.norm1(x + self.dropout1(attn_output))
 
         # Cross-Attention with encoder outputs
-        attn_output, _ = self.cross_attn(x, enc_output, enc_output, src_mask)
+        attn_output, cross_attn_weights = self.cross_attn(x, mask=src_mask)
         x = self.norm2(x + self.dropout2(attn_output))
 
         # Position-wise Feed-Forward with residual connection and layer normalization
         ff_output = self.feed_forward(x)
         x = self.norm3(x + self.dropout3(ff_output))
 
-        return x
+        return x, self_attn_weights, cross_attn_weights
 
 
 class Encoder(nn.Module):
@@ -298,17 +300,20 @@ class Encoder(nn.Module):
             mask (torch.Tensor, optional): attention mask (batch_size, 1, 1, seq_len). Defaults to None.
 
         Returns:
-            torch.Tensor: output tensor (batch_size, seq_len, d_model)
+            tuple: output tensor (batch_size, seq_len, d_model), list of attention weights
         """
         # Token embedding and positional encoding
         x = self.token_embedding(x)
         x = self.pos_encoding(x)
 
+        attention_weights = []
+
         # Pass through encoder layers
         for layer in self.layers:
-            x = layer(x, mask)
+            x, attn_weights = layer(x, mask)
+            attention_weights.append(attn_weights)
 
-        return self.norm(x)
+        return self.norm(x), attention_weights
 
 
 class Decoder(nn.Module):
@@ -349,18 +354,23 @@ class Decoder(nn.Module):
             tgt_mask (torch.Tensor, optional): target mask. Defaults to None.
 
         Returns:
-            torch.Tensor: output tensor (batch_size, seq_len, vocab_size)
+            tuple: output tensor (batch_size, seq_len, vocab_size), self attention weights, cross attention weights
         """
         # Token embedding and positional encoding
         x = self.token_embedding(x)
         x = self.pos_encoding(x)
 
+        self_attention_weights = []
+        cross_attention_weights = []
+
         # Pass through decoder layers
         for layer in self.layers:
-            x = layer(x, enc_output, src_mask, tgt_mask)
+            x, self_attn, cross_attn = layer(x, enc_output, src_mask, tgt_mask)
+            self_attention_weights.append(self_attn)
+            cross_attention_weights.append(cross_attn)
 
         x = self.norm(x)
-        return self.fc_out(x)
+        return self.fc_out(x), self_attention_weights, cross_attention_weights
 
 
 class Transformer(nn.Module):
@@ -393,6 +403,8 @@ class Transformer(nn.Module):
         self.decoder = Decoder(
             vocab_size, d_model, num_heads, d_ff, num_layers, max_len, dropout
         )
+        self.num_heads = num_heads
+        self.num_layers = num_layers
 
     def forward(self, src, tgt, src_mask=None, tgt_mask=None):
         """
@@ -405,11 +417,21 @@ class Transformer(nn.Module):
             tgt_mask (torch.Tensor, optional): target mask. Defaults to None.
 
         Returns:
-            torch.Tensor: output tensor (batch_size, tgt_seq_len, tgt_vocab_size)
+            tuple: output tensor and attention weights dictionary
         """
-        enc_output = self.encoder(src, src_mask)
-        output = self.decoder(tgt, enc_output, src_mask, tgt_mask)
-        return output
+        enc_output, enc_attentions = self.encoder(src, src_mask)
+        dec_output, dec_self_attentions, dec_cross_attentions = self.decoder(
+            tgt, enc_output, src_mask, tgt_mask
+        )
+
+        # Collect all attention weights
+        attention_weights = {
+            "encoder_attention": enc_attentions,
+            "decoder_self_attention": dec_self_attentions,
+            "decoder_cross_attention": dec_cross_attentions,
+        }
+
+        return dec_output, attention_weights
 
     @staticmethod
     def generate_square_subsequent_mask(sz):
@@ -454,8 +476,7 @@ class BuildModel:
         """
         logger.info("Building the model...")
         self.transformer = Transformer(
-            src_vocab_size=self.config.vocab_size,
-            tgt_vocab_size=self.config.vocab_size,
+            vocab_size=self.config.vocab_size,
             d_model=self.config.d_model,
             num_heads=self.config.num_heads,
             d_ff=self.config.dff,
