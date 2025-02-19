@@ -4,4 +4,6 @@ d_model: 512
 vocab_size: 37000
 num_heads: 8
 dff: 2048
-max_length: 512
+max_length: 5000
+max_length_tokenizer: 5000
+dropout: 0.1

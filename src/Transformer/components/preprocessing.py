@@ -3,8 +3,8 @@ import os
 
 import pandas as pd
 from tokenizers import ByteLevelBPETokenizer
-from transformers import PreTrainedTokenizerFast
 from tqdm import tqdm
+from transformers import PreTrainedTokenizerFast
 
 from Transformer import logger
 from Transformer.entity.config_entity import DataPreprocessingConfig
@@ -35,7 +35,9 @@ class Preprocessing:
             all_text.extend(df["translation"].apply(lambda x: x["en"]).tolist())
 
         # Save text to a temporary file for training
-        temp_text_file = os.path.join(self.config.root_dir, "tokenizer_training_text.txt")
+        temp_text_file = os.path.join(
+            self.config.root_dir, "tokenizer_training_text.txt"
+        )
         with open(temp_text_file, "w", encoding="utf-8") as f:
             f.write("\n".join(all_text))
 
@@ -80,7 +82,7 @@ class Preprocessing:
             # Extract German and English text
             df["de"] = df["translation"].apply(lambda x: x["de"])
             df["en"] = df["translation"].apply(lambda x: x["en"])
-            df.drop(columns=["translation"], inplace=True)
+            df = df.drop(columns=["translation"])
 
             # Apply BPE tokenization and get token IDs
             df["de"] = df["de"].apply(
@@ -88,7 +90,7 @@ class Preprocessing:
                     x,
                     truncation=True,
                     padding="max_length",
-                    max_length=self.config.max_length,
+                    max_length=self.config.max_length_tokenizer,
                 ).ids
             )
             df["en"] = df["en"].apply(
@@ -96,7 +98,7 @@ class Preprocessing:
                     x,
                     truncation=True,
                     padding="max_length",
-                    max_length=self.config.max_length,
+                    max_length=self.config.max_length_tokenizer,
                 ).ids
             )
 

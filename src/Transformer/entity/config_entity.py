@@ -19,7 +19,7 @@ class DataPreprocessingConfig:
     preprocessed_data_path: Path
     vocab_size: int
     tokenizer_path: Path
-    max_length: int
+    max_length_tokenizer: int
 
 
 @dataclass(frozen=True)
@@ -31,3 +31,5 @@ class BuildModelConfig:
     num_heads: int
     dff: int
     vocab_size: int
+    dropout: float
+    max_length: int

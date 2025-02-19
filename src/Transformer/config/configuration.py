@@ -53,7 +53,7 @@ class ConfigurationManager:
             preprocessed_data_path=Path(config.preprocessed_data_path),
             vocab_size=self.params.vocab_size,
             tokenizer_path=Path(config.tokenizer_path),
-            max_length=self.params.max_length,
+            max_length=self.params.max_length_tokenizer,
         )
 
     def get_build_model_config(self) -> BuildModelConfig:
@@ -73,4 +73,6 @@ class ConfigurationManager:
             num_heads=self.params.num_heads,
             dff=self.params.dff,
             vocab_size=self.params.vocab_size,
+            dropout=self.params.dropout,
+            max_length=self.params.max_length,
         )

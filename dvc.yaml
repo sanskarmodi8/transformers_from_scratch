@@ -6,7 +6,7 @@ stages:
       - src/Transformer/components/data_ingestion.py
       - config/config.yaml
     outs:
-      - artifacts/data_ingestion/data/
+      - artifacts/data_ingestion/
 
   data_preprocessing:
     cmd: python src/Transformer/pipelines/stage_02_preprocessing.py
@@ -14,5 +14,25 @@ stages:
       - src/Transformer/pipelines/stage_02_preprocessing.py
       - src/Transformer/components/preprocessing.py
       - config/config.yaml
+    params:
+      - max_length_tokenizer
+      - vocab_size
     outs:
-      - artifacts/data_preprocessing/preprocessed_data/
+      - artifacts/data_preprocessing/
+
+  build_model:
+    cmd: python src/Transformer/pipelines/stage_03_build_model.py
+    deps:
+      - src/Transformer/pipelines/stage_03_build_model.py
+      - src/Transformer/components/build_model.py
+      - config/config.yaml
+    params:
+      - num_layers
+      - d_model
+      - num_heads
+      - dff
+      - dropout
+      - max_length
+      - vocab_size
+    outs:
+      - artifacts/build_model/
