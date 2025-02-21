@@ -77,14 +77,13 @@ class PositionalEncoding(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, d_model, num_heads, dropout=0.1):
+    def __init__(self, d_model, num_heads):
         """
         Initializes the MultiHeadAttention module.
 
         Args:
             d_model (int): Dimensionality of the input and output embeddings.
             num_heads (int): Number of attention heads.
-            dropout (float): Dropout rate.
         """
         super().__init__()
         assert d_model % num_heads == 0, "d_model must be a multiple of num_heads"
@@ -99,9 +98,7 @@ class MultiHeadAttention(nn.Module):
         self.W_v = nn.Linear(d_model, d_model, bias=True)
         self.W_o = nn.Linear(d_model, d_model, bias=True)
 
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, query, key=None, value=None, mask=None):
+    def forward(self, query, key, value, mask=None):
         """
         Forward pass of the Multi-Head Attention module.
 
@@ -115,12 +112,6 @@ class MultiHeadAttention(nn.Module):
             tuple: output tensor with attention applied (batch_size, seq_len_q, d_model), attention weights
         """
         batch_size = query.size(0)
-
-        # Default to query for self-attention if key/value not provided
-        if key is None:
-            key = query
-        if value is None:
-            value = query
 
         # 1. Linear projections
         q = self.W_q(query)
@@ -147,9 +138,8 @@ class MultiHeadAttention(nn.Module):
             scores = scores.masked_fill(mask == 0, -1e9)
 
         attn_weights = F.softmax(scores, dim=-1)
-        attn_weights_dropout = self.dropout(attn_weights)
 
-        output = torch.matmul(attn_weights_dropout, v)  # (B, H, Sq, d_k)
+        output = torch.matmul(attn_weights, v)  # (B, H, Sq, d_k)
 
         # 4. Concatenate heads and apply final linear layer
         output = (
@@ -161,19 +151,17 @@ class MultiHeadAttention(nn.Module):
 
 
 class PositionwiseFeedForward(nn.Module):
-    def __init__(self, d_model, d_ff, dropout=0.1):
+    def __init__(self, d_model, d_ff):
         """
         Initializes the PositionwiseFeedForward module.
 
         Args:
             d_model (int): Dimensionality of the input and output embeddings.
             d_ff (int): Dimensionality of the feed-forward network.
-            dropout (float): Dropout rate.
         """
         super().__init__()
         self.w_1 = nn.Linear(d_model, d_ff, bias=True)
         self.w_2 = nn.Linear(d_ff, d_model, bias=True)
-        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         """
@@ -185,8 +173,7 @@ class PositionwiseFeedForward(nn.Module):
         Returns:
             torch.Tensor: output tensor (batch_size, seq_len, d_model)
         """
-        # ReLU as per the paper
-        return self.w_2(self.dropout(F.relu(self.w_1(x))))
+        return self.w_2(F.relu(self.w_1(x)))
 
 
 class EncoderLayer(nn.Module):
@@ -201,36 +188,34 @@ class EncoderLayer(nn.Module):
             dropout (float): Dropout rate.
         """
         super().__init__()
-        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
-        self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout)
+        self.self_attn = MultiHeadAttention(d_model, num_heads)
+        self.feed_forward = PositionwiseFeedForward(d_model, d_ff)
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
-    def forward(self, x, mask=None):
+    def forward(self, x):
         """
         Forward pass of the EncoderLayer with pre-normalization as in the paper.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len, d_model)
-            mask (torch.Tensor, optional): attention mask. Defaults to None.
 
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), attention weights
         """
-        # Pre-LayerNorm architecture as in the paper
         # 1. Self-Attention sub-layer
         residual = x
-        x_norm = self.norm1(x)
-        attn_output, attn_weights = self.self_attn(query=x_norm, mask=mask)
+        attn_output, attn_weights = self.self_attn(query=x, key=x, value=x)
         x = residual + self.dropout1(attn_output)
+        x = self.norm1(x)
 
         # 2. Feed-Forward sub-layer
         residual = x
-        x_norm = self.norm2(x)
-        ff_output = self.feed_forward(x_norm)
+        ff_output = self.feed_forward(x)
         x = residual + self.dropout2(ff_output)
+        x = self.norm2(x)
 
         return x, attn_weights
 
@@ -259,7 +244,7 @@ class DecoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
 
-    def forward(self, x, enc_output, src_mask=None, tgt_mask=None):
+    def forward(self, x, enc_output, mask=None):
         """
         Forward pass of the DecoderLayer with pre-normalization as in the paper.
 
@@ -267,30 +252,30 @@ class DecoderLayer(nn.Module):
             x (torch.Tensor): input tensor (batch_size, seq_len, d_model)
             enc_output (torch.Tensor): encoder output tensor (batch_size, src_seq_len, d_model)
             src_mask (torch.Tensor, optional): source mask for cross attention. Defaults to None.
-            tgt_mask (torch.Tensor, optional): target mask for self attention. Defaults to None.
+            mask (torch.Tensor, optional): mask for self attention. Defaults to None.
 
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), self attention weights, cross attention weights
         """
-        # 1. Masked Self-Attention sub-layer with pre-norm
+        # 1. Masked Self-Attention sub-layer
         residual = x
-        x_norm = self.norm1(x)
-        attn_output, self_attn_weights = self.self_attn(query=x_norm, mask=tgt_mask)
+        attn_output, self_attn_weights = self.self_attn(query=x, key=x, value=x, mask=mask)
         x = residual + self.dropout1(attn_output)
+        x = self.norm1(x)
 
-        # 2. Cross-Attention sub-layer with pre-norm
+        # 2. Cross-Attention sub-layer
         residual = x
-        x_norm = self.norm2(x)
         attn_output, cross_attn_weights = self.cross_attn(
-            query=x_norm, key=enc_output, value=enc_output, mask=src_mask
+            query=enc_output, key=enc_output, value=x
         )
         x = residual + self.dropout2(attn_output)
+        x = self.norm2(x)
 
-        # 3. Position-wise Feed-Forward sub-layer with pre-norm
+        # 3. Position-wise Feed-Forward sub-layer
         residual = x
-        x_norm = self.norm3(x)
-        ff_output = self.feed_forward(x_norm)
+        ff_output = self.feed_forward(x)
         x = residual + self.dropout3(ff_output)
+        x = self.norm3(x)
 
         return x, self_attn_weights, cross_attn_weights
 
@@ -319,16 +304,13 @@ class Encoder(nn.Module):
             [EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]
         )
 
-        self.norm = nn.LayerNorm(d_model)
-
-    def forward(self, x, mask=None):
+    def forward(self, x):
         """
         Forward pass of the Encoder module.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len)
-            mask (torch.Tensor, optional): attention mask (batch_size, 1, 1, seq_len). Defaults to None.
-
+            
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), list of attention weights
         """
@@ -340,11 +322,8 @@ class Encoder(nn.Module):
 
         # Pass through encoder layers
         for layer in self.layers:
-            x, attn_weights = layer(x, mask)
+            x, attn_weights = layer(x)
             attention_weights.append(attn_weights)
-
-        # Final layer norm - not in original paper but commonly added
-        # x = self.norm(x)
 
         return x, attention_weights
 
@@ -373,18 +352,16 @@ class Decoder(nn.Module):
             [DecoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]
         )
 
-        self.norm = nn.LayerNorm(d_model)
         self.fc_out = nn.Linear(d_model, vocab_size)
 
-    def forward(self, x, enc_output, src_mask=None, tgt_mask=None):
+    def forward(self, x, enc_output, mask=None):
         """
         Forward pass of the Decoder module.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len)
             enc_output (torch.Tensor): encoder output tensor (batch_size, seq_len, d_model)
-            src_mask (torch.Tensor, optional): source mask. Defaults to None.
-            tgt_mask (torch.Tensor, optional): target mask. Defaults to None.
+            mask (torch.Tensor, optional): mask for decoder. Defaults to None.
 
         Returns:
             tuple: output tensor (batch_size, seq_len, vocab_size), self attention weights, cross attention weights
@@ -398,12 +375,9 @@ class Decoder(nn.Module):
 
         # Pass through decoder layers
         for layer in self.layers:
-            x, self_attn, cross_attn = layer(x, enc_output, src_mask, tgt_mask)
+            x, self_attn, cross_attn = layer(x, enc_output, mask)
             self_attention_weights.append(self_attn)
             cross_attention_weights.append(cross_attn)
-
-        # Final layer norm
-        x = self.norm(x)
 
         # Project to vocabulary size
         output = self.fc_out(x)
@@ -414,8 +388,7 @@ class Decoder(nn.Module):
 class Transformer(nn.Module):
     def __init__(
         self,
-        src_vocab_size,
-        tgt_vocab_size,
+        vocab_size,
         d_model=512,
         num_heads=8,
         d_ff=2048,
@@ -427,8 +400,7 @@ class Transformer(nn.Module):
         Initializes the Transformer model as described in "Attention Is All You Need".
 
         Args:
-            src_vocab_size (int): Size of the source vocabulary.
-            tgt_vocab_size (int): Size of the target vocabulary.
+            vocab_size (int): Size of the vocabulary.
             d_model (int): Dimensionality of the model (512 in the paper).
             num_heads (int): Number of attention heads (8 in the paper).
             d_ff (int): Dimensionality of the feed-forward network (2048 in the paper).
@@ -438,35 +410,34 @@ class Transformer(nn.Module):
         """
         super().__init__()
         self.encoder = Encoder(
-            src_vocab_size, d_model, num_heads, d_ff, num_layers, max_len, dropout
+            vocab_size, d_model, num_heads, d_ff, num_layers, max_len, dropout
         )
         self.decoder = Decoder(
-            tgt_vocab_size, d_model, num_heads, d_ff, num_layers, max_len, dropout
+            vocab_size, d_model, num_heads, d_ff, num_layers, max_len, dropout
         )
         self.num_heads = num_heads
         self.num_layers = num_layers
 
-        # Initialize parameters using Xavier/Glorot initialization as mentioned in the paper
+        # Initialize parameters using Xavier/Glorot initialization
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, src, tgt, src_mask=None, tgt_mask=None):
+    def forward(self, src, tgt, mask=None):
         """
         Forward pass of the Transformer model.
 
         Args:
             src (torch.Tensor): source tensor (batch_size, src_seq_len)
             tgt (torch.Tensor): target tensor (batch_size, tgt_seq_len)
-            src_mask (torch.Tensor, optional): source mask. Defaults to None.
-            tgt_mask (torch.Tensor, optional): target mask. Defaults to None.
+            mask (torch.Tensor, optional): mask for decoder. Defaults to None.
 
         Returns:
             tuple: output tensor and attention weights dictionary
         """
-        enc_output, enc_attentions = self.encoder(src, src_mask)
+        enc_output, enc_attentions = self.encoder(src)
         dec_output, dec_self_attentions, dec_cross_attentions = self.decoder(
-            tgt, enc_output, src_mask, tgt_mask
+            tgt, enc_output, mask
         )
 
         # Collect all attention weights
@@ -477,25 +448,6 @@ class Transformer(nn.Module):
         }
 
         return dec_output, attention_weights
-
-    @staticmethod
-    def generate_square_subsequent_mask(sz):
-        """
-        Generate a square mask for the sequence to prevent positions from attending to subsequent positions.
-
-        Args:
-            sz (int): Sequence length.
-
-        Returns:
-            torch.Tensor: mask filled with zeros for future positions and ones for current/past positions
-        """
-        mask = (torch.triu(torch.ones(sz, sz)) == 1).transpose(0, 1)
-        mask = (
-            mask.float()
-            .masked_fill(mask == 0, float("-inf"))
-            .masked_fill(mask == 1, float(0.0))
-        )
-        return mask
 
 
 class BuildModel:
@@ -521,8 +473,7 @@ class BuildModel:
         """
         logger.info("Building the model...")
         self.transformer = Transformer(
-            src_vocab_size=self.config.vocab_size,
-            tgt_vocab_size=self.config.vocab_size,
+            vocab_size=self.config.vocab_size,
             d_model=self.config.d_model,
             num_heads=self.config.num_heads,
             d_ff=self.config.dff,
