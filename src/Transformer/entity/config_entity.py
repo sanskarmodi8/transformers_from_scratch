@@ -33,3 +33,25 @@ class BuildModelConfig:
     vocab_size: int
     dropout: float
     max_length: int
+
+
+@dataclass(frozen=True)
+class ModelTrainingConfig:
+    root_dir: Path
+    data_path: Path
+    model_path: Path
+    trained_model_path: Path
+    wandb_project_name: str
+    wandb_run_name: str
+    warmup_steps: int
+    src_tokens_per_batch: int
+    tgt_tokens_per_batch: int
+    total_steps: int
+    adam_beta1: float
+    adam_beta2: float
+    adam_epsilon: float
+    label_smoothing: float
+    last_n_checkpoints_to_avg: int
+    checkpoint_interval_minutes: int
+    beam_size: int
+    length_penalty: float

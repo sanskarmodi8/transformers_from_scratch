@@ -88,17 +88,11 @@ class Preprocessing:
             df["de"] = df["de"].apply(
                 lambda x: tokenizer.encode(
                     x,
-                    truncation=True,
-                    padding="max_length",
-                    max_length=self.config.max_length_tokenizer,
                 ).ids
             )
             df["en"] = df["en"].apply(
                 lambda x: tokenizer.encode(
                     x,
-                    truncation=True,
-                    padding="max_length",
-                    max_length=self.config.max_length_tokenizer,
                 ).ids
             )
 

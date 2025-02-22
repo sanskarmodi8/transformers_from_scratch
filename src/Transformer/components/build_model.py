@@ -259,7 +259,9 @@ class DecoderLayer(nn.Module):
         """
         # 1. Masked Self-Attention sub-layer
         residual = x
-        attn_output, self_attn_weights = self.self_attn(query=x, key=x, value=x, mask=mask)
+        attn_output, self_attn_weights = self.self_attn(
+            query=x, key=x, value=x, mask=mask
+        )
         x = residual + self.dropout1(attn_output)
         x = self.norm1(x)
 
@@ -310,7 +312,7 @@ class Encoder(nn.Module):
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len)
-            
+
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), list of attention weights
         """

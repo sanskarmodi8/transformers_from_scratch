@@ -36,3 +36,25 @@ stages:
       - vocab_size
     outs:
       - artifacts/build_model/
+
+  model_training:
+    cmd: python src/Transformer/pipelines/stage_04_model_training.py
+    deps:
+      - src/Transformer/pipelines/stage_04_model_training.py
+      - src/Transformer/components/model_training.py
+      - config/config.yaml
+    params:
+      - warmup_steps
+      - src_tokens_per_batch
+      - tgt_tokens_per_batch
+      - total_steps
+      - adam_beta1
+      - adam_beta2
+      - adam_epsilon
+      - label_smoothing
+      - last_n_checkpoints_to_avg
+      - checkpoint_interval_minutes
+      - beam_size
+      - length_penalty
+    outs:
+      - artifacts/model_training/

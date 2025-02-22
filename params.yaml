@@ -5,5 +5,18 @@ vocab_size: 37000
 num_heads: 8
 dff: 2048
 max_length: 5000
-max_length_tokenizer: 512
 dropout: 0.1
+
+# training
+warmup_steps: 4000
+src_tokens_per_batch: 25000
+tgt_tokens_per_batch: 25000
+total_steps: 100000
+adam_beta1: 0.9
+adam_beta2: 0.98
+adam_epsilon: 1e-9
+label_smoothing: 0.1
+last_n_checkpoints_to_avg: 5
+checkpoint_interval_minutes: 10
+beam_size: 4
+length_penalty: 0.6
