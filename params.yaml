@@ -9,6 +9,8 @@ dropout: 0.1
 
 # training
 warmup_steps: 4000
+lr_factor: 2.0
+clip_grad: 1.0
 src_tokens_per_batch: 25000
 tgt_tokens_per_batch: 25000
 total_steps: 100000

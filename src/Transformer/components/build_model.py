@@ -1,8 +1,5 @@
 import math
 
-import matplotlib.pyplot as plt
-import numpy as np
-import seaborn as sns
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -232,9 +229,9 @@ class DecoderLayer(nn.Module):
             dropout (float): Dropout rate.
         """
         super().__init__()
-        self.self_attn = MultiHeadAttention(d_model, num_heads, dropout)
-        self.cross_attn = MultiHeadAttention(d_model, num_heads, dropout)
-        self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout)
+        self.self_attn = MultiHeadAttention(d_model, num_heads)
+        self.cross_attn = MultiHeadAttention(d_model, num_heads)
+        self.feed_forward = PositionwiseFeedForward(d_model, d_ff)
 
         self.norm1 = nn.LayerNorm(d_model)
         self.norm2 = nn.LayerNorm(d_model)
@@ -268,7 +265,7 @@ class DecoderLayer(nn.Module):
         # 2. Cross-Attention sub-layer
         residual = x
         attn_output, cross_attn_weights = self.cross_attn(
-            query=enc_output, key=enc_output, value=x
+            query=x, key=enc_output, value=enc_output
         )
         x = residual + self.dropout2(attn_output)
         x = self.norm2(x)
@@ -425,18 +422,42 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def forward(self, src, tgt, mask=None):
+    def generate_decoder_mask(self, tgt_len):
+        """
+        Generates a square mask for the decoder where any position j cannot attend
+        to any position i > j (prevents future information flow).
+        
+        Args:
+            tgt_len (int): target sequence length
+            
+        Returns:
+            torch.Tensor: Mask with shape (tgt_len, tgt_len)
+        """
+        # Create a lower triangular matrix (including diagonal)
+        mask = torch.tril(torch.ones(tgt_len, tgt_len)).bool()
+        
+        # Add batch and head dimensions for compatibility with attention mechanism
+        # Final shape will be (1, 1, tgt_len, tgt_len)
+        mask = mask.unsqueeze(0).unsqueeze(0)
+        
+        return mask
+        
+    def forward(self, src, tgt):
         """
         Forward pass of the Transformer model.
 
         Args:
             src (torch.Tensor): source tensor (batch_size, src_seq_len)
             tgt (torch.Tensor): target tensor (batch_size, tgt_seq_len)
-            mask (torch.Tensor, optional): mask for decoder. Defaults to None.
-
+            
         Returns:
             tuple: output tensor and attention weights dictionary
         """
+        # Generate mask for decoder
+        mask = self.generate_decoder_mask(tgt.size(1))
+        # Move mask to the same device as input tensors
+        mask = mask.to(src.device)
+            
         enc_output, enc_attentions = self.encoder(src)
         dec_output, dec_self_attentions, dec_cross_attentions = self.decoder(
             tgt, enc_output, mask

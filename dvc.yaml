@@ -15,7 +15,6 @@ stages:
       - src/Transformer/components/preprocessing.py
       - config/config.yaml
     params:
-      - max_length_tokenizer
       - vocab_size
     outs:
       - artifacts/data_preprocessing/
@@ -45,6 +44,8 @@ stages:
       - config/config.yaml
     params:
       - warmup_steps
+      - lr_factor
+      - clip_grad
       - src_tokens_per_batch
       - tgt_tokens_per_batch
       - total_steps

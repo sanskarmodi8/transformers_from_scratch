@@ -44,13 +44,16 @@ class Preprocessing:
         # Train BPE tokenizer
         tokenizer.train(
             files=[temp_text_file],
-            vocab_size=37000,
+            vocab_size=self.config.vocab_size,
             min_frequency=2,
             special_tokens=["<s>", "</s>", "<pad>", "<unk>", "<mask>"],
         )
 
         # Save tokenizer
-        tokenizer.save_model(self.config.tokenizer_path)
+        tokenizer.save_model(str(self.config.tokenizer_path))
+        # Also save tokenizer.json for compatibility with PreTrainedTokenizerFast
+        fast_tokenizer = PreTrainedTokenizerFast(tokenizer_object=tokenizer)
+        fast_tokenizer.save_pretrained(self.config.tokenizer_path)
         logger.info(f"BPE tokenizer trained and saved at {self.config.tokenizer_path}")
 
     def preprocess_data(self):
@@ -62,9 +65,21 @@ class Preprocessing:
 
         :return: None
         """
+        # check if preprocessed data already exists
+        if os.path.exists(self.config.preprocessed_data_path):
+            logger.info("Preprocessed data already exists, skipping preprocessing.")
+            return
+        # Check if tokenizer is already trained
+        if not os.path.exists(self.config.tokenizer_path):
+            logger.info("Tokenizer not found, training a new one...")
+            self.train_tokenizer()
+        else:
+            logger.info("Tokenizer found, loading the existing one...")
         # Load trained tokenizer
         tokenizer = PreTrainedTokenizerFast(
-            tokenizer_file=os.path.join(self.config.tokenizer_path, "vocab.json"),
+            tokenizer_file=os.path.join(
+                str(self.config.tokenizer_path), "tokenizer.json"
+            ),
             unk_token="<unk>",
             pad_token="<pad>",
             cls_token="<s>",
@@ -88,12 +103,12 @@ class Preprocessing:
             df["de"] = df["de"].apply(
                 lambda x: tokenizer.encode(
                     x,
-                ).ids
+                )
             )
             df["en"] = df["en"].apply(
                 lambda x: tokenizer.encode(
                     x,
-                ).ids
+                )
             )
 
             # Save preprocessed data

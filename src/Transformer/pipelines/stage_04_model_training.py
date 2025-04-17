@@ -24,8 +24,7 @@ class ModelTrainingPipeline:
 
         :return: None
         """
-        self.model_training.train()
-        self.model_training.save_model()
+        self.model_training.run()
 
 
 if __name__ == "__main__":

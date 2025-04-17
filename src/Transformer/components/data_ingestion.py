@@ -1,9 +1,12 @@
 import pandas as pd
 from datasets import load_dataset
+from dotenv import load_dotenv
 from tqdm import tqdm
 
 from Transformer import logger
 from Transformer.entity.config_entity import DataIngestionConfig
+
+load_dotenv()
 
 
 class DataIngestion:
@@ -27,7 +30,7 @@ class DataIngestion:
 
         # Handle dataset download errors
         try:
-            dataset = load_dataset("wmt14", "de-en")
+            dataset = load_dataset("wmt/wmt14", "de-en")
             logger.info("Dataset successfully loaded.")
         except Exception as e:
             logger.error(f"Failed to download dataset: {e}")

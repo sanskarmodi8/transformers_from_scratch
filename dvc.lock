@@ -5,19 +5,73 @@ stages:
     deps:
     - path: config/config.yaml
       hash: md5
-      md5: a22f820ea1028d4d84922f71a376e158
-      size: 327
+      md5: 459fde9eccd0ecbe4ab55ad8635499ba
+      size: 824
     - path: src/Transformer/components/data_ingestion.py
       hash: md5
-      md5: 20e9bcc4423e3ca7cc9a65a8b90f25dc
-      size: 1330
+      md5: 98df0aa17b950df0658f47ca7ad9c681
+      size: 1425
     - path: src/Transformer/pipelines/stage_01_data_ingestion.py
       hash: md5
-      md5: f22d1c253666f8aa33c7325ae03e6741
-      size: 1359
+      md5: 87832e629d0de59c0f2d376d39c99478
+      size: 1401
     outs:
-    - path: artifacts/data_ingestion/data/
+    - path: artifacts/data_ingestion/
       hash: md5
-      md5: a7fc2663ebd6dcd41b0c418ce276992a.dir
+      md5: 7f403bc10d5a20583f5f86145534a299.dir
       size: 1429515453
       nfiles: 3
+  data_preprocessing:
+    cmd: python src/Transformer/pipelines/stage_02_preprocessing.py
+    deps:
+    - path: config/config.yaml
+      hash: md5
+      md5: 459fde9eccd0ecbe4ab55ad8635499ba
+      size: 824
+    - path: src/Transformer/components/preprocessing.py
+      hash: md5
+      md5: 74b2b14afb7822ba33259211fcc9d42e
+      size: 4661
+    - path: src/Transformer/pipelines/stage_02_preprocessing.py
+      hash: md5
+      md5: f724071c7645705a3d7eb19689675253
+      size: 1445
+    params:
+      params.yaml:
+        vocab_size: 37000
+    outs:
+    - path: artifacts/data_preprocessing/
+      hash: md5
+      md5: d751713988987e9331980363e24189ce.dir
+      size: 0
+      nfiles: 0
+  build_model:
+    cmd: python src/Transformer/pipelines/stage_03_build_model.py
+    deps:
+    - path: config/config.yaml
+      hash: md5
+      md5: 459fde9eccd0ecbe4ab55ad8635499ba
+      size: 824
+    - path: src/Transformer/components/build_model.py
+      hash: md5
+      md5: e76209cd2b86807cfd0464d5c04a4fb6
+      size: 17172
+    - path: src/Transformer/pipelines/stage_03_build_model.py
+      hash: md5
+      md5: 34b0152fb4269b4f45807519e1b9c47e
+      size: 1192
+    params:
+      params.yaml:
+        d_model: 512
+        dff: 2048
+        dropout: 0.1
+        max_length: 5000
+        num_heads: 8
+        num_layers: 6
+        vocab_size: 37000
+    outs:
+    - path: artifacts/build_model/
+      hash: md5
+      md5: 2752e0d34da2c5aa9e6e38c602030e3f.dir
+      size: 424602246
+      nfiles: 1

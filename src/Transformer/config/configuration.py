@@ -54,7 +54,6 @@ class ConfigurationManager:
             preprocessed_data_path=Path(config.preprocessed_data_path),
             vocab_size=self.params.vocab_size,
             tokenizer_path=Path(config.tokenizer_path),
-            max_length=self.params.max_length_tokenizer,
         )
 
     def get_build_model_config(self) -> BuildModelConfig:
@@ -95,6 +94,8 @@ class ConfigurationManager:
             wandb_project_name=config.wandb_project_name,
             wandb_run_name=config.wandb_run_name,
             warmup_steps=config.warmup_steps,
+            lr_factor=config.lr_factor,
+            clip_grad=config.clip_grad,
             src_tokens_per_batch=config.src_tokens_per_batch,
             tgt_tokens_per_batch=config.tgt_tokens_per_batch,
             total_steps=config.total_steps,

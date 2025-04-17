@@ -19,7 +19,6 @@ class DataPreprocessingConfig:
     preprocessed_data_path: Path
     vocab_size: int
     tokenizer_path: Path
-    max_length_tokenizer: int
 
 
 @dataclass(frozen=True)
@@ -47,6 +46,8 @@ class ModelTrainingConfig:
     src_tokens_per_batch: int
     tgt_tokens_per_batch: int
     total_steps: int
+    lr_factor: float
+    clip_grad: float
     adam_beta1: float
     adam_beta2: float
     adam_epsilon: float
