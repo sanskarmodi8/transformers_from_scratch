@@ -192,19 +192,19 @@ class EncoderLayer(nn.Module):
         self.dropout1 = nn.Dropout(dropout)
         self.dropout2 = nn.Dropout(dropout)
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """
         Forward pass of the EncoderLayer with pre-normalization as in the paper.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len, d_model)
-
+            mask (torch.Tensor, optional): mask for padding. Tells the encoder which tokens are padding in the source. Defaults to None.
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), attention weights
         """
         # 1. Self-Attention sub-layer
         residual = x
-        attn_output, attn_weights = self.self_attn(query=x, key=x, value=x)
+        attn_output, attn_weights = self.self_attn(query=x, key=x, value=x, mask=mask)
         x = residual + self.dropout1(attn_output)
         x = self.norm1(x)
 
@@ -241,16 +241,15 @@ class DecoderLayer(nn.Module):
         self.dropout2 = nn.Dropout(dropout)
         self.dropout3 = nn.Dropout(dropout)
 
-    def forward(self, x, enc_output, mask=None):
+    def forward(self, x, enc_output, mask=None, src_mask=None):
         """
         Forward pass of the DecoderLayer with pre-normalization as in the paper.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len, d_model)
             enc_output (torch.Tensor): encoder output tensor (batch_size, src_seq_len, d_model)
-            src_mask (torch.Tensor, optional): source mask for cross attention. Defaults to None.
-            mask (torch.Tensor, optional): mask for self attention. Defaults to None.
-
+            mask (torch.Tensor, optional): mask for self attention. Used to not attend to future tokens. Defaults to None.
+            src_mask (torch.Tensor, optional): mask for padding. Tells the encoder which tokens are padding in the source. Defaults to None.
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), self attention weights, cross attention weights
         """
@@ -265,7 +264,7 @@ class DecoderLayer(nn.Module):
         # 2. Cross-Attention sub-layer
         residual = x
         attn_output, cross_attn_weights = self.cross_attn(
-            query=x, key=enc_output, value=enc_output
+            query=x, key=enc_output, value=enc_output, mask=src_mask
         )
         x = residual + self.dropout2(attn_output)
         x = self.norm2(x)
@@ -303,13 +302,13 @@ class Encoder(nn.Module):
             [EncoderLayer(d_model, num_heads, d_ff, dropout) for _ in range(num_layers)]
         )
 
-    def forward(self, x):
+    def forward(self, x, mask=None):
         """
         Forward pass of the Encoder module.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len)
-
+            mask (torch.Tensor, optional): mask for padding. Tells the encoder which tokens are padding in the source. Defaults to None.
         Returns:
             tuple: output tensor (batch_size, seq_len, d_model), list of attention weights
         """
@@ -321,7 +320,7 @@ class Encoder(nn.Module):
 
         # Pass through encoder layers
         for layer in self.layers:
-            x, attn_weights = layer(x)
+            x, attn_weights = layer(x, mask)
             attention_weights.append(attn_weights)
 
         return x, attention_weights
@@ -353,15 +352,15 @@ class Decoder(nn.Module):
 
         self.fc_out = nn.Linear(d_model, vocab_size)
 
-    def forward(self, x, enc_output, mask=None):
+    def forward(self, x, enc_output, mask=None, src_mask=None):
         """
         Forward pass of the Decoder module.
 
         Args:
             x (torch.Tensor): input tensor (batch_size, seq_len)
             enc_output (torch.Tensor): encoder output tensor (batch_size, seq_len, d_model)
-            mask (torch.Tensor, optional): mask for decoder. Defaults to None.
-
+            mask (torch.Tensor, optional): mask for decoder. Used to not attend to future tokens. Defaults to None.
+            src_mask (torch.Tensor, optional): mask for padding. Tells the encoder which tokens are padding in the source. Defaults to None.
         Returns:
             tuple: output tensor (batch_size, seq_len, vocab_size), self attention weights, cross attention weights
         """
@@ -374,7 +373,7 @@ class Decoder(nn.Module):
 
         # Pass through decoder layers
         for layer in self.layers:
-            x, self_attn, cross_attn = layer(x, enc_output, mask)
+            x, self_attn, cross_attn = layer(x, enc_output, mask, src_mask)
             self_attention_weights.append(self_attn)
             cross_attention_weights.append(cross_attn)
 
@@ -422,45 +421,21 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-    def generate_decoder_mask(self, tgt_len):
-        """
-        Generates a square mask for the decoder where any position j cannot attend
-        to any position i > j (prevents future information flow).
-        
-        Args:
-            tgt_len (int): target sequence length
-            
-        Returns:
-            torch.Tensor: Mask with shape (tgt_len, tgt_len)
-        """
-        # Create a lower triangular matrix (including diagonal)
-        mask = torch.tril(torch.ones(tgt_len, tgt_len)).bool()
-        
-        # Add batch and head dimensions for compatibility with attention mechanism
-        # Final shape will be (1, 1, tgt_len, tgt_len)
-        mask = mask.unsqueeze(0).unsqueeze(0)
-        
-        return mask
-        
-    def forward(self, src, tgt):
+    def forward(self, src, tgt, src_mask, tgt_mask):
         """
         Forward pass of the Transformer model.
 
         Args:
             src (torch.Tensor): source tensor (batch_size, src_seq_len)
             tgt (torch.Tensor): target tensor (batch_size, tgt_seq_len)
-            
+            src_mask (torch.Tensor): source mask
+            tgt_mask (torch.Tensor): target mask
         Returns:
             tuple: output tensor and attention weights dictionary
         """
-        # Generate mask for decoder
-        mask = self.generate_decoder_mask(tgt.size(1))
-        # Move mask to the same device as input tensors
-        mask = mask.to(src.device)
-            
-        enc_output, enc_attentions = self.encoder(src)
+        enc_output, enc_attentions = self.encoder(src, src_mask)
         dec_output, dec_self_attentions, dec_cross_attentions = self.decoder(
-            tgt, enc_output, mask
+            tgt, enc_output, tgt_mask, src_mask
         )
 
         # Collect all attention weights

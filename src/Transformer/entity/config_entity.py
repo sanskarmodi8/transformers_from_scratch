@@ -55,4 +55,11 @@ class ModelTrainingConfig:
     last_n_checkpoints_to_avg: int
     checkpoint_interval_minutes: int
     beam_size: int
+    d_model: int
     length_penalty: float
+    num_layers: int
+    vocab_size: int
+    dropout: float
+    max_length: int
+    num_heads: int
+    dff: int

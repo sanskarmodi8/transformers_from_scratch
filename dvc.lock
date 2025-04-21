@@ -50,12 +50,12 @@ stages:
     deps:
     - path: config/config.yaml
       hash: md5
-      md5: 459fde9eccd0ecbe4ab55ad8635499ba
-      size: 824
+      md5: b011b8abf05cdae51e6b94270dd6cab7
+      size: 821
     - path: src/Transformer/components/build_model.py
       hash: md5
-      md5: e76209cd2b86807cfd0464d5c04a4fb6
-      size: 17172
+      md5: 000d639ca2fcea7f4776af95ff09922d
+      size: 17842
     - path: src/Transformer/pipelines/stage_03_build_model.py
       hash: md5
       md5: 34b0152fb4269b4f45807519e1b9c47e
@@ -72,6 +72,6 @@ stages:
     outs:
     - path: artifacts/build_model/
       hash: md5
-      md5: 2752e0d34da2c5aa9e6e38c602030e3f.dir
+      md5: 73a2801d64d4c35e574595fa48d6d2bc.dir
       size: 424602246
       nfiles: 1

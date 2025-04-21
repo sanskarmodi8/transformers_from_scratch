@@ -80,8 +80,10 @@ class Preprocessing:
             tokenizer_file=os.path.join(
                 str(self.config.tokenizer_path), "tokenizer.json"
             ),
-            unk_token="<unk>",
             pad_token="<pad>",
+            unk_token="<unk>",
+            bos_token="<s>",
+            eos_token="</s>",
             cls_token="<s>",
             sep_token="</s>",
             mask_token="<mask>",

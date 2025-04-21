@@ -14,12 +14,12 @@ data_preprocessing:
 
 build_model:
   root_dir: artifacts/build_model
-  model_path: artifacts/build_model/transformer.pth
+  model_path: artifacts/build_model/transformer.pt
 
 model_training:
   root_dir: artifacts/model_training
   data_path: artifacts/data_preprocessing/preprocessed_data
-  model_path: artifacts/build_model/transformer.pth
-  trained_model_path: artifacts/model_training/transformer.pth
+  model_path: artifacts/build_model/transformer.pt
+  trained_model_path: artifacts/model_training/transformer.pt
   wandb_project_name: transformer_from_scratch
   wandb_run_name: transformer_de_en

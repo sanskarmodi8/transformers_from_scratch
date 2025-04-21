@@ -5,6 +5,7 @@ datasets
 transformers
 sentencepiece
 sacremoses
+sacrebleu
 
 # progress bars
 tqdm
