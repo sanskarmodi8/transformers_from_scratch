@@ -457,7 +457,7 @@ class ModelTrainer:
             self.model.parameters(),
             lr=0.0,  # Will be set by scheduler
             betas=(self.config.adam_beta1, self.config.adam_beta2),
-            eps=self.config.adam_epsilon,
+            eps=float(self.config.adam_epsilon),
         )
 
         # Noam learning rate scheduler
@@ -534,9 +534,9 @@ class ModelTrainer:
 
         # Create masks
         src_mask = create_padding_mask(src, self.pad_id)
-        tgt_mask = create_padding_mask(tgt_input, self.pad_id) & create_look_ahead_mask(
-            tgt_input.size(1)
-        ).to(self.device)
+        tgt_mask = create_padding_mask(
+            tgt_input, self.pad_id
+        ).bool() & create_look_ahead_mask(tgt_input.size(1)).bool().to(self.device)
 
         # Forward pass
         self.optimizer.zero_grad()
@@ -645,7 +645,9 @@ class ModelTrainer:
                 src_mask = create_padding_mask(src, self.pad_id)
                 tgt_mask = create_padding_mask(
                     tgt_input, self.pad_id
-                ) & create_look_ahead_mask(tgt_input.size(1)).to(self.device)
+                ).bool() & create_look_ahead_mask(tgt_input.size(1)).bool().to(
+                    self.device
+                )
 
                 output, _ = self.model(src, tgt_input, src_mask, tgt_mask)
                 loss = self.criterion(
