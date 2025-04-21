@@ -737,7 +737,7 @@ class ModelTrainer:
 
                 # Get model predictions
                 with torch.no_grad():
-                    decoder_output, _ = self.model.decoder(
+                    decoder_output, _, _ = self.model.decoder(
                         decoder_input, encoder_output, tgt_mask, src_mask
                     )
                     logits = decoder_output[0, -1]  # Get logits for the last position
